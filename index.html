@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TikTok Shop auth callback</title>
+  <meta name="robots" content="noindex" />
+  <style>
+    :root { color-scheme: light dark; }
+    body { font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+           max-width: 640px; margin: 6vh auto; padding: 0 20px; }
+    h1 { font-size: 1.25rem; }
+    .muted { opacity: .7; }
+    .code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 1.1rem; word-break: break-all; padding: 12px 14px;
+            border: 1px solid currentColor; border-radius: 8px; background: rgba(127,127,127,.08); }
+    .row { display: flex; gap: 8px; align-items: center; margin: 12px 0; flex-wrap: wrap; }
+    button { font: inherit; padding: 8px 14px; border-radius: 8px; cursor: pointer; }
+    pre { white-space: pre-wrap; word-break: break-all; background: rgba(127,127,127,.08);
+          padding: 12px 14px; border-radius: 8px; }
+    .ok { color: #17803d; } .err { color: #b3261e; }
+    dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; }
+    dt { opacity: .7; }
+  </style>
+</head>
+<body>
+  <h1>TikTok Shop authorization callback</h1>
+  <div id="out"></div>
+  <script>
+    // Static page: reads the redirect's query params in YOUR browser only.
+    // No network calls, no storage — the auth code is never sent anywhere from here.
+    const q = new URLSearchParams(location.search);
+    const code = q.get("code");
+    const err = q.get("error") || q.get("error_description");
+    const out = document.getElementById("out");
+
+    function esc(s){ const d=document.createElement("div"); d.textContent=s??""; return d.innerHTML; }
+
+    if (err) {
+      out.innerHTML = `<p class="err"><strong>Authorization failed:</strong> ${esc(err)}</p>
+        <p class="muted">Re-run the consent flow and try again.</p>`;
+    } else if (code) {
+      const cmd = `PYTHONPATH=src uv run --extra secrets --extra clients python scripts/tiktok_authorize.py ${code}`;
+      out.innerHTML = `
+        <p class="ok"><strong>Got your authorization code.</strong> It expires in ~30 minutes — use it now.</p>
+        <div class="code" id="code">${esc(code)}</div>
+        <div class="row">
+          <button onclick="navigator.clipboard.writeText(document.getElementById('code').textContent).then(()=>this.textContent='Copied ✓')">Copy code</button>
+          <button onclick="navigator.clipboard.writeText(document.getElementById('cmd').textContent).then(()=>this.textContent='Copied ✓')">Copy full command</button>
+        </div>
+        <p class="muted">Run this in the Remittance Agent repo:</p>
+        <pre id="cmd">${esc(cmd)}</pre>
+        <dl>
+          <dt>shop_region</dt><dd>${esc(q.get("shop_region") || "—")}</dd>
+          <dt>app_key</dt><dd>${esc(q.get("app_key") || "—")}</dd>
+          <dt>locale</dt><dd>${esc(q.get("locale") || "—")}</dd>
+        </dl>`;
+    } else {
+      out.innerHTML = `<p class="muted">Waiting for a TikTok Shop redirect. Register this page's URL as your
+        app's callback URL, then authorize the app — you'll be redirected back here with your code.</p>`;
+    }
+  </script>
+</body>
+</html>
